@@ -78,8 +78,13 @@ To not run any command, set to nil."
   :type '(set (repeat string) (const nil))
   :group 'emacs-everywhere)
 
+(defvar emacs-everywhere-emacs-yank-command
+  'yank
+  "Emacs command used for pasting from the clipboard into the Emacs Everywhere buffer.")
+
 (defcustom emacs-everywhere-copy-command
   (pcase emacs-everywhere--display-server
+    ('quartz (list "cat" "%f" "|" "pbcopy"))
     ('x11 (list "xclip" "-selection" "clipboard" "%f"))
     ((and 'wayland (guard (executable-find "wl-copy")))
      (list "sh" "-c" "wl-copy < %f"))
@@ -359,6 +364,7 @@ buffers.")
       (org-ctrl-c-ctrl-c)
     (emacs-everywhere-finish)))
 
+;; It is not copying to the clipboard at the end. We need to make copying work. We can do so without writing to file, but directly within Emacs. Why is that not the case?
 (defun emacs-everywhere-finish (&optional abort)
   "Copy buffer content, close emacs-everywhere window, and maybe paste.
 Must only be called within a emacs-everywhere buffer.
@@ -613,7 +619,7 @@ return windowTitle"))
            (mapcar (lambda (arg)
                      (replace-regexp-in-string "%w" emacs-window-id arg))
                    (cdr emacs-everywhere-window-focus-command))))
-  (yank))
+  (funcall emacs-everywhere-emacs-yank-command))
 
 (defun emacs-everywhere-insert-selection ()
   "Insert the last text selection into the buffer."
@@ -622,7 +628,7 @@ return windowTitle"))
                (call-process "osascript" nil nil nil
                              "-e" "tell application \"System Events\" to keystroke \"c\" using command down")
                (sleep-for emacs-everywhere-clipboard-sleep-delay) ; lets clipboard info propagate
-               (yank)))
+               (funcall emacs-everywhere-emacs-yank-command)))
     ((or 'ms-dos 'windows-nt 'cygwin)
      (emacs-everywhere-insert-selection--windows))
     (_ (when-let ((selection (gui-get-selection 'PRIMARY 'UTF8_STRING)))
